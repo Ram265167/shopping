@@ -133,3 +133,29 @@ drop policy if exists "public read product images" on product_images;
 create policy "public read product images" on product_images for select using (true);
 drop policy if exists "public read product variants" on product_variants;
 create policy "public read product variants" on product_variants for select using (true);
+
+-- Customer data protection: users can access only their own order/profile data.
+alter table profiles enable row level security;
+alter table addresses enable row level security;
+alter table orders enable row level security;
+alter table order_items enable row level security;
+alter table order_status_history enable row level security;
+
+drop policy if exists "users read own profile" on profiles;
+create policy "users read own profile" on profiles for select using (auth.uid() = id);
+
+drop policy if exists "users manage own addresses" on addresses;
+create policy "users manage own addresses" on addresses for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "users read own orders" on orders;
+create policy "users read own orders" on orders for select using (auth.uid() = user_id);
+
+drop policy if exists "users read own order items" on order_items;
+create policy "users read own order items" on order_items for select using (
+  exists (select 1 from orders o where o.id = order_id and o.user_id = auth.uid())
+);
+
+drop policy if exists "users read own order status" on order_status_history;
+create policy "users read own order status" on order_status_history for select using (
+  exists (select 1 from orders o where o.id = order_id and o.user_id = auth.uid())
+);
