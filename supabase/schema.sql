@@ -163,3 +163,15 @@ create policy "users read own order status" on order_status_history for select u
 -- Product image storage: create this bucket in Supabase Storage before using the admin uploader.
 -- Dashboard: Storage -> New bucket -> name: product-images -> Public bucket: ON.
 -- Keep the Supabase service-role key only on the FastAPI backend.
+
+-- Review moderation and helpful-vote support
+alter table reviews add column if not exists is_approved boolean not null default true;
+create table if not exists review_helpful_votes (
+  id uuid primary key default gen_random_uuid(),
+  review_id uuid not null references reviews(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique(review_id, user_id)
+);
+create index if not exists idx_reviews_product_approved on reviews(product_id, is_approved, created_at desc);
+create index if not exists idx_review_votes_review on review_helpful_votes(review_id);
