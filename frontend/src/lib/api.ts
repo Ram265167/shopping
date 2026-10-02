@@ -10,6 +10,7 @@ async function request<T>(path: string): Promise<T> {
 
 export const api = {
   products: (params = "") => request<{ items: Product[]; count: number }>(`/products${params}`),
+  product: (slug: string) => request<Product>(`/products/${encodeURIComponent(slug)}`),
   categories: () => request<{ items: Category[] }>("/categories"),
   health: () => request<{ status: string }>("/health"),
 };
