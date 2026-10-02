@@ -51,6 +51,12 @@ def update_product(product_id: str, payload: ProductUpdate, authorization: str |
     result = client.table("products").update(values).eq("id", product_id).execute()
     return {"product": result.data[0] if result.data else None}
 
+@router.get("/orders")
+def admin_orders(authorization: str | None = Header(default=None)):
+    client = admin_client(authorization)
+    result = client.table("orders").select("*").order("created_at", desc=True).limit(100).execute()
+    return {"items": result.data or []}
+
 @router.patch("/orders/{order_id}/status")
 def update_order_status(order_id: str, status: str, authorization: str | None = Header(default=None)):
     allowed = {"ordered","packed","shipped","out_for_delivery","delivered","cancelled","return_requested","returned","refunded"}
