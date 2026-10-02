@@ -11,3 +11,5 @@ export type Product = {
 export type Category = {
   id: string; name: string; slug: string; image_url?: string | null; sort_order: number;
 };
+
+export type CartItem = { product: Product; quantity: number };
