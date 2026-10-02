@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from supabase import create_client
 from app.core.config import settings
@@ -27,7 +27,7 @@ def user_from_token(authorization: str | None):
 @router.get("/product/{product_id}")
 def product_reviews(product_id: str):
     client = create_client(settings.supabase_url, settings.supabase_anon_key)
-    result = client.table("reviews").select("id,rating,title,body,is_verified_buyer,helpful_count,created_at").eq("product_id", product_id).eq("is_approved", True).order("created_at", desc=True).execute()
+    result = client.table("reviews").select("id,rating,title,body,is_verified_buyer,helpful_count,created_at,review_images(id,image_url)").eq("product_id", product_id).eq("is_approved", True).order("created_at", desc=True).execute()
     return {"items": result.data or []}
 
 @router.post("")
@@ -58,3 +58,32 @@ def helpful(review_id: str):
     count = int(review.data[0].get("helpful_count") or 0) + 1
     client.table("reviews").update({"helpful_count": count}).eq("id", review_id).execute()
     return {"helpful_count": count}
+
+
+@router.post("/{review_id}/images/upload")
+async def upload_review_image(review_id: str, file: UploadFile = File(...), authorization: str | None = Header(default=None)):
+    user, client = user_from_token(authorization)
+    review = client.table("reviews").select("id,user_id").eq("id", review_id).eq("user_id", user.id).limit(1).execute()
+    if not review.data:
+        raise HTTPException(status_code=404, detail="Review not found.")
+    if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+        raise HTTPException(status_code=400, detail="Only JPG, PNG, and WebP images are allowed.")
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Review image must be 5 MB or smaller.")
+    import uuid
+    ext = {"image/jpeg":"jpg","image/png":"png","image/webp":"webp"}[file.content_type]
+    path = f"reviews/{review_id}/{uuid.uuid4()}.{ext}"
+    try:
+        client.storage.from_("review-images").upload(path, data, {"content-type": file.content_type, "upsert": False})
+        public_url = client.storage.from_("review-images").get_public_url(path)
+        existing = client.table("review_images").select("id").eq("review_id", review_id).execute()
+        if len(existing.data or []) >= 5:
+            client.storage.from_("review-images").remove([path])
+            raise HTTPException(status_code=400, detail="A review can contain up to 5 photos.")
+        result = client.table("review_images").insert({"review_id": review_id, "image_url": public_url}).execute()
+        return {"image": result.data[0] if result.data else None}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Review image upload failed: {exc}")
