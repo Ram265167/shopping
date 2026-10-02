@@ -15,5 +15,8 @@ export const api = {
   health: () => request<{ status: string }>("/health"),
   createOrder: (body: unknown) => fetch(`${API_BASE}/orders`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) }).then(async res => { if(!res.ok) throw new Error((await res.json()).detail || "Order failed"); return res.json(); }),
   orders: (userId: string) => request<{ items: any[] }>(`/orders/user/${userId}`),
+  reviews: (productId: string) => request<{ items: any[] }>(`/reviews/product/${productId}`),
+  createReview: (body: unknown, token: string) => fetch(`${API_BASE}/reviews`, {method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body)}).then(async res=>{if(!res.ok)throw new Error((await res.json()).detail||"Review failed");return res.json();}),
+  helpfulReview: (reviewId: string) => fetch(`${API_BASE}/reviews/${reviewId}/helpful`,{method:"POST"}).then(async res=>{if(!res.ok)throw new Error("Unable to vote");return res.json();}),
 \n  adminUpload: async (path: string, token: string, file: File) => { const form=new FormData(); form.append("file",file); const res=await fetch(`${API_BASE}/admin${path}`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:form}); if(!res.ok) throw new Error((await res.json()).detail||"Upload failed"); return res.json(); },\n  admin: async (path: string, token: string, options: RequestInit = {}) => { const res = await fetch(`${API_BASE}/admin${path}`, { ...options, headers: {"Content-Type":"application/json", Authorization:`Bearer ${token}`, ...(options.headers||{})} }); if(!res.ok) throw new Error((await res.json()).detail || "Admin request failed"); return res.json(); },
 };
