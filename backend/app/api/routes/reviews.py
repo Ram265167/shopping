@@ -27,7 +27,7 @@ def user_from_token(authorization: str | None):
 @router.get("/product/{product_id}")
 def product_reviews(product_id: str):
     client = create_client(settings.supabase_url, settings.supabase_anon_key)
-    result = client.table("reviews").select("id,rating,title,body,is_verified_buyer,helpful_count,created_at,profiles(full_name)").eq("product_id", product_id).eq("is_approved", True).order("created_at", desc=True).execute()
+    result = client.table("reviews").select("id,rating,title,body,is_verified_buyer,helpful_count,created_at").eq("product_id", product_id).eq("is_approved", True).order("created_at", desc=True).execute()
     return {"items": result.data or []}
 
 @router.post("")
