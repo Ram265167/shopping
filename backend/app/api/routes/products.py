@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from ..deps import get_supabase
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -25,3 +25,13 @@ def list_products(
         query = query.eq("is_featured", True)
     result = query.order("created_at", desc=True).limit(limit).execute()
     return {"items": result.data or [], "count": len(result.data or [])}
+
+@router.get("/{slug}")
+def get_product(slug: str):
+    client = get_supabase()
+    result = client.table("products").select(
+        "*, categories(name,slug), brands(name,slug), product_images(image_url,alt_text,sort_order), product_variants(id,size,color,sku,price,stock_quantity)"
+    ).eq("slug", slug).eq("is_active", True).limit(1).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return result.data[0]
