@@ -69,3 +69,22 @@ Google login, mobile OTP, real order creation/tracking, online payments, reviews
 ### Supabase database
 
 Run `supabase/schema.sql` in the Supabase SQL editor before using the catalog API. Add product records and product image records to populate the storefront.
+
+
+## Admin dashboard
+
+The app now includes a protected admin route at `#admin` with:
+- dashboard statistics for products, orders, customers and revenue
+- inventory visibility
+- product price/stock editing
+- order list and status updates
+
+For server-side admin operations, add `SUPABASE_SERVICE_ROLE_KEY` only to the **backend server environment**. Never put it in `frontend/.env.local` or commit it to GitHub.
+
+After creating your first Supabase Auth account, create/update its profile role to `admin` in Supabase:
+
+```sql
+update profiles set role = 'admin' where id = 'YOUR_AUTH_USER_ID';
+```
+
+The admin API verifies the signed-in user's profile role before using the private server key.
