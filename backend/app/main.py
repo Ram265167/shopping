@@ -4,6 +4,7 @@ from app.core.config import settings
 from app.api.routes.products import router as products_router
 from app.api.routes.categories import router as categories_router
 from app.api.routes.orders import router as orders_router
+from app.api.routes.admin import router as admin_router
 
 app = FastAPI(title="Seetharam API", version="0.1.0")
 
@@ -18,6 +19,7 @@ app.add_middleware(
 app.include_router(products_router, prefix="/api")
 app.include_router(categories_router, prefix="/api")
 app.include_router(orders_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
 
 @app.get("/api/health")
 def health():
