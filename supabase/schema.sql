@@ -180,3 +180,7 @@ create index if not exists idx_review_votes_review on review_helpful_votes(revie
 alter table reviews enable row level security;
 drop policy if exists "public read approved reviews" on reviews;
 create policy "public read approved reviews" on reviews for select using (is_approved = true);
+
+-- Review photo storage bucket. Create as a PUBLIC bucket in Storage -> New bucket.
+-- Bucket name: review-images
+-- The FastAPI service-role client performs authenticated uploads; storefront reads public URLs.
