@@ -217,3 +217,15 @@ def update_order_status(order_id: str, status: str, authorization: str | None = 
     result = client.table("orders").update({"status": status}).eq("id", order_id).execute()
     client.table("order_status_history").insert({"order_id": order_id, "status": status, "note": "Updated by admin"}).execute()
     return {"order": result.data[0] if result.data else None}
+
+@router.get("/reviews")
+def reviews(authorization: str | None = Header(default=None)):
+    client = admin_client(authorization)
+    result = client.table("reviews").select("*,products(name),profiles(full_name)").order("created_at", desc=True).limit(200).execute()
+    return {"items": result.data or []}
+
+@router.patch("/reviews/{review_id}")
+def moderate_review(review_id: str, approved: bool, authorization: str | None = Header(default=None)):
+    client = admin_client(authorization)
+    result = client.table("reviews").update({"is_approved": approved}).eq("id", review_id).execute()
+    return {"review": result.data[0] if result.data else None}
