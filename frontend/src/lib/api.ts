@@ -15,4 +15,5 @@ export const api = {
   health: () => request<{ status: string }>("/health"),
   createOrder: (body: unknown) => fetch(`${API_BASE}/orders`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) }).then(async res => { if(!res.ok) throw new Error((await res.json()).detail || "Order failed"); return res.json(); }),
   orders: (userId: string) => request<{ items: any[] }>(`/orders/user/${userId}`),
+  admin: async (path: string, token: string, options: RequestInit = {}) => { const res = await fetch(`${API_BASE}/admin${path}`, { ...options, headers: {"Content-Type":"application/json", Authorization:`Bearer ${token}`, ...(options.headers||{})} }); if(!res.ok) throw new Error((await res.json()).detail || "Admin request failed"); return res.json(); },
 };
