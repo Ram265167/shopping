@@ -113,6 +113,29 @@ def delete_product(product_id: str, authorization: str | None = Header(default=N
     result = client.table("products").update({"is_active": False}).eq("id", product_id).execute()
     return {"product": result.data[0] if result.data else None}
 
+from fastapi import File, UploadFile
+import uuid
+
+@router.post("/products/{product_id}/images/upload")
+async def upload_product_image(product_id: str, file: UploadFile = File(...), authorization: str | None = Header(default=None)):
+    client = admin_client(authorization)
+    allowed = {"image/jpeg", "image/png", "image/webp"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail="Only JPG, PNG, and WebP images are allowed.")
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image must be 5 MB or smaller.")
+    ext = {"image/jpeg":"jpg","image/png":"png","image/webp":"webp"}[file.content_type]
+    path = f"products/{product_id}/{uuid.uuid4()}.{ext}"
+    try:
+        client.storage.from_("product-images").upload(path, data, {"content-type": file.content_type, "upsert": False})
+        public_url = client.storage.from_("product-images").get_public_url(path)
+        existing = client.table("product_images").select("id").eq("product_id", product_id).execute()
+        result = client.table("product_images").insert({"product_id":product_id,"image_url":public_url,"alt_text":file.filename or "Product image","sort_order":len(existing.data or [])}).execute()
+        return {"image": result.data[0] if result.data else None, "url": public_url}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Image upload failed: {exc}")
+
 @router.get("/products/{product_id}/images")
 def product_images(product_id: str, authorization: str | None = Header(default=None)):
     client = admin_client(authorization)
