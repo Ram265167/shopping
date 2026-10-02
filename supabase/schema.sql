@@ -175,3 +175,8 @@ create table if not exists review_helpful_votes (
 );
 create index if not exists idx_reviews_product_approved on reviews(product_id, is_approved, created_at desc);
 create index if not exists idx_review_votes_review on review_helpful_votes(review_id);
+
+-- Public storefront access is limited to approved review content.
+alter table reviews enable row level security;
+drop policy if exists "public read approved reviews" on reviews;
+create policy "public read approved reviews" on reviews for select using (is_approved = true);
