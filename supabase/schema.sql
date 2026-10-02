@@ -159,3 +159,7 @@ drop policy if exists "users read own order status" on order_status_history;
 create policy "users read own order status" on order_status_history for select using (
   exists (select 1 from orders o where o.id = order_id and o.user_id = auth.uid())
 );
+
+-- Product image storage: create this bucket in Supabase Storage before using the admin uploader.
+-- Dashboard: Storage -> New bucket -> name: product-images -> Public bucket: ON.
+-- Keep the Supabase service-role key only on the FastAPI backend.
