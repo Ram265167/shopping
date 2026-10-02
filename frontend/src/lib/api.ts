@@ -13,4 +13,6 @@ export const api = {
   product: (slug: string) => request<Product>(`/products/${encodeURIComponent(slug)}`),
   categories: () => request<{ items: Category[] }>("/categories"),
   health: () => request<{ status: string }>("/health"),
+  createOrder: (body: unknown) => fetch(`${API_BASE}/orders`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) }).then(async res => { if(!res.ok) throw new Error((await res.json()).detail || "Order failed"); return res.json(); }),
+  orders: (userId: string) => request<{ items: any[] }>(`/orders/user/${userId}`),
 };
