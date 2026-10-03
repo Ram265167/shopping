@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field
-from ..deps import get_supabase, require_user
+from ..deps import get_admin_supabase, get_supabase, require_user
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -25,7 +25,7 @@ def create_order(payload: CreateOrderIn, authorization: str | None = Header(defa
     if not payload.items:
         raise HTTPException(status_code=400, detail="Cart is empty.")
 
-    client = get_supabase()
+    client = get_admin_supabase()
     try:
         result = client.rpc(
             "create_cod_order",
@@ -55,7 +55,8 @@ def create_order(payload: CreateOrderIn, authorization: str | None = Header(defa
 @router.get("/user/{user_id}")
 def user_orders(user_id: str, authorization: str | None = Header(default=None)):
     current_user = require_user(authorization)
-    if user_id != current_user: raise HTTPException(status_code=403, detail="You can only view your own orders.")
+    if user_id != current_user:
+        raise HTTPException(status_code=403, detail="You can only view your own orders.")
     client = get_supabase()
     result = client.table("orders").select("*, order_items(*)").eq("user_id", user_id).order("created_at", desc=True).execute()
     return {"items": result.data or []}
@@ -63,21 +64,26 @@ def user_orders(user_id: str, authorization: str | None = Header(default=None)):
 @router.get("/{order_id}/tracking")
 def order_tracking(order_id: str, user_id: str, authorization: str | None = Header(default=None)):
     current_user = require_user(authorization)
-    if user_id != current_user: raise HTTPException(status_code=403, detail="You can only track your own orders.")
+    if user_id != current_user:
+        raise HTTPException(status_code=403, detail="You can only track your own orders.")
     client = get_supabase()
-    order = client.table("orders").select("id,status,created_at,shipping_address,total,discount,coupon_code").eq("id",order_id).eq("user_id",user_id).limit(1).execute()
-    if not order.data: raise HTTPException(status_code=404, detail="Order not found.")
-    history = client.table("order_status_history").select("*").eq("order_id",order_id).order("created_at").execute()
+    order = client.table("orders").select("id,status,created_at,shipping_address,total,discount,coupon_code").eq("id", order_id).eq("user_id", user_id).limit(1).execute()
+    if not order.data:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    history = client.table("order_status_history").select("*").eq("order_id", order_id).order("created_at").execute()
     return {"order": order.data[0], "history": history.data or []}
 
 @router.post("/{order_id}/cancel")
 def cancel_order(order_id: str, user_id: str, authorization: str | None = Header(default=None)):
     current_user = require_user(authorization)
-    if user_id != current_user: raise HTTPException(status_code=403, detail="You can only cancel your own orders.")
+    if user_id != current_user:
+        raise HTTPException(status_code=403, detail="You can only cancel your own orders.")
     client = get_supabase()
     found = client.table("orders").select("id,status,user_id").eq("id", order_id).eq("user_id", user_id).limit(1).execute()
-    if not found.data: raise HTTPException(status_code=404, detail="Order not found.")
-    if found.data[0]["status"] not in ("ordered", "packed"): raise HTTPException(status_code=400, detail="This order can no longer be cancelled.")
+    if not found.data:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    if found.data[0]["status"] not in ("ordered", "packed"):
+        raise HTTPException(status_code=400, detail="This order can no longer be cancelled.")
     result = client.table("orders").update({"status": "cancelled"}).eq("id", order_id).eq("user_id", user_id).execute()
     client.table("order_status_history").insert({"order_id": order_id, "status": "cancelled", "note": "Cancellation requested by customer"}).execute()
     return {"order": result.data[0] if result.data else None}
@@ -85,11 +91,14 @@ def cancel_order(order_id: str, user_id: str, authorization: str | None = Header
 @router.post("/{order_id}/return-request")
 def return_request(order_id: str, user_id: str, authorization: str | None = Header(default=None)):
     current_user = require_user(authorization)
-    if user_id != current_user: raise HTTPException(status_code=403, detail="You can only request returns for your own orders.")
+    if user_id != current_user:
+        raise HTTPException(status_code=403, detail="You can only request returns for your own orders.")
     client = get_supabase()
     found = client.table("orders").select("id,status,user_id").eq("id", order_id).eq("user_id", user_id).limit(1).execute()
-    if not found.data: raise HTTPException(status_code=404, detail="Order not found.")
-    if found.data[0]["status"] != "delivered": raise HTTPException(status_code=400, detail="Returns can be requested only after delivery.")
+    if not found.data:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    if found.data[0]["status"] != "delivered":
+        raise HTTPException(status_code=400, detail="Returns can be requested only after delivery.")
     result = client.table("orders").update({"status": "return_requested"}).eq("id", order_id).eq("user_id", user_id).execute()
     client.table("order_status_history").insert({"order_id": order_id, "status": "return_requested", "note": "Return requested by customer"}).execute()
     return {"order": result.data[0] if result.data else None}
