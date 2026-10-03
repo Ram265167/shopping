@@ -63,6 +63,8 @@ def create_order(payload: CreateOrderIn):
              "quantity": i.quantity, "unit_price": i.unit_price, "total_price": i.unit_price*i.quantity} for i in payload.items]
     client.table("order_items").insert(rows).execute()
     client.table("order_status_history").insert({"order_id": order_id, "status": "ordered", "note": "Order placed"}).execute()
+    if coupon:
+        client.table("coupons").update({"used_count": int(coupon.get("used_count") or 0) + 1}).eq("id", coupon["id"]).execute()
     return {"order": order.data[0]}
 
 @router.get("/user/{user_id}")
