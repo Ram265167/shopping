@@ -15,6 +15,7 @@ export const api = {
   health: () => request<{ status: string }>("/health"),
   createOrder: (body: unknown) => fetch(`${API_BASE}/orders`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) }).then(async res => { if(!res.ok) throw new Error((await res.json()).detail || "Order failed"); return res.json(); }),
   orders: (userId: string) => request<{ items: any[] }>(`/orders/user/${userId}`),
+  tracking: (orderId: string, userId: string) => request<{ order:any; history:any[] }>(`/orders/${orderId}/tracking?user_id=${encodeURIComponent(userId)}`),
   validateCoupon: (code: string, subtotal: number) => fetch(`${API_BASE}/coupons/validate`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,subtotal})}).then(async res=>{if(!res.ok)throw new Error((await res.json()).detail||"Coupon validation failed");return res.json();}),
   reviews: (productId: string) => request<{ items: any[] }>(`/reviews/product/${productId}`),
   createReview: (body: unknown, token: string) => fetch(`${API_BASE}/reviews`, {method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body)}).then(async res=>{if(!res.ok)throw new Error((await res.json()).detail||"Review failed");return res.json();}),
