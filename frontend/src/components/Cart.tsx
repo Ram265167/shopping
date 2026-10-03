@@ -1,6 +1,7 @@
+import type { Dispatch, SetStateAction } from "react";
 import type { CartItem } from "../types";
 const money=(n:number)=>"₹"+Number(n).toLocaleString("en-IN");
-export default function Cart({items,setItems,back}:{items:CartItem[];setItems:React.Dispatch<React.SetStateAction<CartItem[]>>;back:()=>void}){
+export default function Cart({items,setItems,back}:{items:CartItem[];setItems:Dispatch<SetStateAction<CartItem[]>>;back:()=>void}){
  const total=items.reduce((s,i)=>s+i.product.price*i.quantity,0);
  const change=(id:string,delta:number)=>setItems(xs=>xs.map(i=>i.product.id===id?{...i,quantity:Math.max(1,i.quantity+delta)}:i));
  const remove=(id:string)=>setItems(xs=>xs.filter(i=>i.product.id!==id));
