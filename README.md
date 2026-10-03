@@ -6,7 +6,7 @@ Modern Indian ecommerce platform. Single-vendor first, with an API/database desi
 - React + TypeScript + Vite
 - Python FastAPI REST backend
 - Supabase PostgreSQL, Auth and Storage
-- Responsive web app with PWA-ready architecture
+- Responsive web app with PWA-ready architecture\n- Razorpay-ready online payment checkout with server-side order creation and signature verification\n- Vercel frontend + Render backend deployment configuration
 
 ## Core catalog
 Men, Women, Kids, Sarees, Footwear, Accessories, Offers, New Arrivals and Best Sellers.
@@ -64,7 +64,7 @@ The API normally runs at `http://localhost:8000`.
 - COD-ready checkout entry point
 - Responsive mobile layout
 
-Google login, mobile OTP, real order creation/tracking, online payments, reviews, notifications and the admin dashboard are planned for the next modules.
+Google login and mobile OTP are available through Supabase Auth. COD and Razorpay-ready online checkout are implemented; production payment activation requires private Razorpay credentials and webhook/merchant configuration.
 
 ### Supabase database
 
@@ -88,3 +88,29 @@ update profiles set role = 'admin' where id = 'YOUR_AUTH_USER_ID';
 ```
 
 The admin API verifies the signed-in user's profile role before using the private server key.
+
+
+## Production deployment
+
+### Backend — Render
+The repository includes `render.yaml`. Create the Render service from the repository and set the secret environment variables in Render, never in GitHub:
+- `DATABASE_URL`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `CORS_ORIGINS`
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+
+### Frontend — Vercel
+The repository includes `vercel.json`. Set these Vercel environment variables:
+- `VITE_API_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com/api`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+After the Vercel URL is known, put that URL in the backend `CORS_ORIGINS` value.
+
+### Online payments
+Run `supabase/migrations/20261003_online_payments.sql` in the Supabase SQL editor. The payment flow creates the Seetharam order and calculates its amount on the server, creates a Razorpay order, opens Razorpay Checkout in the browser, and verifies the returned signature on the FastAPI backend. Razorpay's documentation recommends keeping API secrets out of version control and validating payment signatures server-side. 
+
+Use Razorpay test credentials while developing. Do not put the key secret in `frontend/.env.local`, Vercel, browser code, or GitHub. Only the public key ID is returned to the browser. Before accepting real payments, configure the merchant account, production keys, HTTPS, and Razorpay webhook handling according to the current Razorpay documentation.
