@@ -2,6 +2,7 @@ from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from supabase import create_client
 from app.core.config import settings
+from app.api.deps import require_user
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -50,14 +51,26 @@ def create_review(payload: ReviewCreate, authorization: str | None = Header(defa
     return {"review": result.data[0] if result.data else None}
 
 @router.post("/{review_id}/helpful")
-def helpful(review_id: str):
+def helpful(review_id: str, authorization: str | None = Header(default=None)):
+    user_id = require_user(authorization)
+    if not settings.supabase_service_role_key:
+        raise HTTPException(status_code=500, detail="Server service key is not configured.")
     client = create_client(settings.supabase_url, settings.supabase_service_role_key)
-    review = client.table("reviews").select("helpful_count").eq("id", review_id).limit(1).execute()
+    review = client.table("reviews").select("id,helpful_count").eq("id", review_id).eq("is_approved", True).limit(1).execute()
     if not review.data:
         raise HTTPException(status_code=404, detail="Review not found.")
-    count = int(review.data[0].get("helpful_count") or 0) + 1
-    client.table("reviews").update({"helpful_count": count}).eq("id", review_id).execute()
-    return {"helpful_count": count}
+
+    existing = client.table("review_helpful_votes").select("id").eq("review_id", review_id).eq("user_id", user_id).limit(1).execute()
+    if existing.data:
+        return {"helpful_count": int(review.data[0].get("helpful_count") or 0), "already_voted": True}
+
+    try:
+        client.table("review_helpful_votes").insert({"review_id": review_id, "user_id": user_id}).execute()
+        count = int(review.data[0].get("helpful_count") or 0) + 1
+        client.table("reviews").update({"helpful_count": count}).eq("id", review_id).execute()
+        return {"helpful_count": count, "already_voted": False}
+    except Exception:
+        raise HTTPException(status_code=409, detail="You have already marked this review helpful.")
 
 
 @router.post("/{review_id}/images/upload")
