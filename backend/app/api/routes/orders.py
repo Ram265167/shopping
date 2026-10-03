@@ -31,12 +31,14 @@ def create_order(payload: CreateOrderIn):
     discount = 0.0
     coupon = None
     if payload.coupon_code:
+        if not settings.supabase_service_role_key: raise HTTPException(status_code=500, detail="Coupon service is not configured.")
         admin = create_client(settings.supabase_url, settings.supabase_service_role_key)
         found = admin.table("coupons").select("*").eq("code", payload.coupon_code.strip().upper()).limit(1).execute()
         if not found.data: raise HTTPException(status_code=400, detail="Coupon not found.")
         coupon = found.data[0]
         now = datetime.now(timezone.utc)
         if not coupon.get("is_active"): raise HTTPException(status_code=400, detail="Coupon is inactive.")
+        if coupon.get("starts_at") and now < datetime.fromisoformat(coupon["starts_at"].replace("Z","+00:00")): raise HTTPException(status_code=400, detail="Coupon is not active yet.")
         if coupon.get("expires_at") and now > datetime.fromisoformat(coupon["expires_at"].replace("Z","+00:00")): raise HTTPException(status_code=400, detail="Coupon has expired.")
         if coupon.get("usage_limit") is not None and int(coupon.get("used_count") or 0) >= int(coupon["usage_limit"]): raise HTTPException(status_code=400, detail="Coupon usage limit reached.")
         if subtotal < float(coupon.get("minimum_order_value") or 0): raise HTTPException(status_code=400, detail="Minimum order value not reached.")
