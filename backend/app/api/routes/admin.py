@@ -229,3 +229,42 @@ def moderate_review(review_id: str, approved: bool, authorization: str | None = 
     client = admin_client(authorization)
     result = client.table("reviews").update({"is_approved": approved}).eq("id", review_id).execute()
     return {"review": result.data[0] if result.data else None}
+
+class CouponCreate(BaseModel):
+    code: str = Field(min_length=2, max_length=50)
+    description: str | None = None
+    discount_type: str
+    discount_value: float = Field(gt=0)
+    minimum_order_value: float = Field(default=0, ge=0)
+    max_discount: float | None = Field(default=None, ge=0)
+    usage_limit: int | None = Field(default=None, ge=1)
+    starts_at: str | None = None
+    expires_at: str | None = None
+    is_active: bool = True
+
+@router.get("/coupons")
+def coupons(authorization: str | None = Header(default=None)):
+    client = admin_client(authorization)
+    result = client.table("coupons").select("*").order("is_active", desc=True).order("expires_at").execute()
+    return {"items": result.data or []}
+
+@router.post("/coupons")
+def create_coupon(payload: CouponCreate, authorization: str | None = Header(default=None)):
+    client = admin_client(authorization)
+    if payload.discount_type not in ("percent","fixed"):
+        raise HTTPException(status_code=400, detail="Discount type must be percent or fixed.")
+    if payload.discount_type == "percent" and payload.discount_value > 100:
+        raise HTTPException(status_code=400, detail="Percentage discount cannot exceed 100.")
+    values=payload.model_dump()
+    values["code"]=payload.code.strip().upper()
+    result=client.table("coupons").insert(values).execute()
+    return {"coupon": result.data[0] if result.data else None}
+
+@router.patch("/coupons/{coupon_id}")
+def update_coupon(coupon_id: str, payload: dict, authorization: str | None = Header(default=None)):
+    client=admin_client(authorization)
+    allowed={"description","discount_type","discount_value","minimum_order_value","max_discount","usage_limit","starts_at","expires_at","is_active"}
+    values={k:v for k,v in payload.items() if k in allowed}
+    if values.get("discount_type")=="percent" and float(values.get("discount_value",0))>100: raise HTTPException(status_code=400,detail="Percentage discount cannot exceed 100.")
+    result=client.table("coupons").update(values).eq("id",coupon_id).execute()
+    return {"coupon": result.data[0] if result.data else None}
