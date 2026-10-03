@@ -13,6 +13,8 @@ export const api = {
   product: (slug: string) => request<Product>(`/products/${encodeURIComponent(slug)}`),
   categories: () => request<{ items: Category[] }>("/categories"),
   health: () => request<{ status: string }>("/health"),
+  createPaymentOrder: (body: unknown, token: string) => fetch(`${API_BASE}/payments/create-order`, {method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body)}).then(async res=>{if(!res.ok)throw new Error((await res.json()).detail||"Unable to start online payment");return res.json();}),
+  verifyPayment: (body: unknown, token: string) => fetch(`${API_BASE}/payments/verify`, {method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body)}).then(async res=>{if(!res.ok)throw new Error((await res.json()).detail||"Payment verification failed");return res.json();}),
   createOrder: (body: unknown, token: string) => fetch(`${API_BASE}/orders`, { method: "POST", headers: {"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body: JSON.stringify(body) }).then(async res => { if(!res.ok) throw new Error((await res.json()).detail || "Order failed"); return res.json(); }),
   orders: (userId: string, token: string) => request<{ items: any[] }>(`/orders/user/${userId}`, token),
   tracking: (orderId: string, userId: string, token: string) => request<{ order:any; history:any[] }>(`/orders/${orderId}/tracking?user_id=${encodeURIComponent(userId)}`, token),
