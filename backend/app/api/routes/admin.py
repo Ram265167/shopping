@@ -216,7 +216,11 @@ def update_order_status(order_id: str, status: str, authorization: str | None = 
     client = admin_client(authorization)
     result = client.table("orders").update({"status": status}).eq("id", order_id).execute()
     client.table("order_status_history").insert({"order_id": order_id, "status": status, "note": "Updated by admin"}).execute()
-    return {"order": result.data[0] if result.data else None}
+    updated = result.data[0] if result.data else None
+    if updated and updated.get("user_id") and settings.supabase_service_role_key:
+        messages = {"packed":"Your order has been packed.","shipped":"Your order has shipped.","out_for_delivery":"Your order is out for delivery.","delivered":"Your order has been delivered.","cancelled":"Your order was cancelled.","return_requested":"Your return request is being reviewed.","returned":"Your return has been received.","refunded":"Your refund has been processed.","ordered":"Your order is confirmed."}
+        client.table("notifications").insert({"user_id": updated["user_id"], "title": "Order " + status.replace("_", " "), "message": messages.get(status, "Your order status was updated.") + " Order #" + str(order_id)[:8] + ".", "type": "order", "order_id": order_id}).execute()
+    return {"order": updated}
 
 @router.get("/reviews")
 def reviews(authorization: str | None = Header(default=None)):
