@@ -9,6 +9,12 @@ def get_supabase() -> Client:
         raise RuntimeError("Supabase configuration is missing.")
     return create_client(settings.supabase_url, settings.supabase_anon_key)
 
+@lru_cache
+def get_admin_supabase() -> Client:
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        raise RuntimeError("Supabase service-role configuration is missing.")
+    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+
 def require_user(authorization: str | None = Header(default=None)) -> str:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Sign-in required.")
