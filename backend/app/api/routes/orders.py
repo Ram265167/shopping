@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field
-from ..deps import get_supabase
+from ..deps import get_supabase, require_user
 from app.core.config import settings
 from supabase import create_client
 from datetime import datetime, timezone
@@ -21,7 +21,10 @@ class CreateOrderIn(BaseModel):
     coupon_code: str | None = None
 
 @router.post("")
-def create_order(payload: CreateOrderIn):
+def create_order(payload: CreateOrderIn, authorization: str | None = Header(default=None)):
+    current_user = require_user(authorization)
+    if payload.user_id != current_user:
+        raise HTTPException(status_code=403, detail="You can only create orders for your account.")
     if payload.payment_method != "cod":
         raise HTTPException(status_code=400, detail="Only COD is enabled in this milestone.")
     if not payload.items:
@@ -70,13 +73,17 @@ def create_order(payload: CreateOrderIn):
     return {"order": order.data[0]}
 
 @router.get("/user/{user_id}")
-def user_orders(user_id: str):
+def user_orders(user_id: str, authorization: str | None = Header(default=None)):
+    current_user = require_user(authorization)
+    if user_id != current_user: raise HTTPException(status_code=403, detail="You can only view your own orders.")
     client = get_supabase()
     result = client.table("orders").select("*, order_items(*)").eq("user_id", user_id).order("created_at", desc=True).execute()
     return {"items": result.data or []}
 
 @router.get("/{order_id}/tracking")
-def order_tracking(order_id: str, user_id: str):
+def order_tracking(order_id: str, user_id: str, authorization: str | None = Header(default=None)):
+    current_user = require_user(authorization)
+    if user_id != current_user: raise HTTPException(status_code=403, detail="You can only track your own orders.")
     client = get_supabase()
     order = client.table("orders").select("id,status,created_at,shipping_address,total,discount,coupon_code").eq("id",order_id).eq("user_id",user_id).limit(1).execute()
     if not order.data: raise HTTPException(status_code=404, detail="Order not found.")
@@ -85,7 +92,9 @@ def order_tracking(order_id: str, user_id: str):
 
 
 @router.post("/{order_id}/cancel")
-def cancel_order(order_id: str, user_id: str):
+def cancel_order(order_id: str, user_id: str, authorization: str | None = Header(default=None)):
+    current_user = require_user(authorization)
+    if user_id != current_user: raise HTTPException(status_code=403, detail="You can only cancel your own orders.")
     client = get_supabase()
     found = client.table("orders").select("id,status,user_id").eq("id", order_id).eq("user_id", user_id).limit(1).execute()
     if not found.data: raise HTTPException(status_code=404, detail="Order not found.")
@@ -98,7 +107,9 @@ def cancel_order(order_id: str, user_id: str):
     return {"order": result.data[0] if result.data else None}
 
 @router.post("/{order_id}/return-request")
-def return_request(order_id: str, user_id: str):
+def return_request(order_id: str, user_id: str, authorization: str | None = Header(default=None)):
+    current_user = require_user(authorization)
+    if user_id != current_user: raise HTTPException(status_code=403, detail="You can only request returns for your own orders.")
     client = get_supabase()
     found = client.table("orders").select("id,status,user_id").eq("id", order_id).eq("user_id", user_id).limit(1).execute()
     if not found.data: raise HTTPException(status_code=404, detail="Order not found.")
