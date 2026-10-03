@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import json
 import razorpay
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from app.core.config import settings
@@ -63,7 +63,7 @@ def create_payment_order(payload: PaymentOrderIn, authorization: str | None = He
     except Exception:
         client.table("orders").update({"status": "cancelled", "payment_status": "failed"}).eq("id", data["order_id"]).execute()
         raise HTTPException(status_code=502, detail="Unable to create payment gateway order.")
-    client.table("orders").update({"payment_status": "pending"}).eq("id", data["order_id"]).eq("user_id", current_user).execute()
+    client.table("orders").update({"payment_status": "pending", "payment_provider_order_id": rorder["id"]}).eq("id", data["order_id"]).eq("user_id", current_user).execute()
     return {
         "order_id": data["order_id"],
         "amount": int(round(float(data["total"]) * 100)),
@@ -88,8 +88,32 @@ def verify_payment(payload: VerifyPaymentIn, authorization: str | None = Header(
     expected = hmac.new(settings.razorpay_key_secret.encode(), body, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, payload.razorpay_signature):
         raise HTTPException(status_code=400, detail="Invalid payment signature.")
-    updated = client.table("orders").update({"payment_status":"paid"}).eq("id", payload.order_id).eq("user_id", current_user).eq("payment_status","pending").execute()
+    updated = client.table("orders").update({"payment_status":"paid", "payment_provider_payment_id":payload.razorpay_payment_id, "payment_provider_order_id":payload.razorpay_order_id}).eq("id", payload.order_id).eq("user_id", current_user).eq("payment_status","pending").execute()
     if updated.data:
         client.table("order_status_history").insert({"order_id":payload.order_id,"status":"ordered","note":"Online payment verified successfully."}).execute()
         client.table("notifications").insert({"user_id":current_user,"title":"Payment successful","message":f"Payment received for order #{payload.order_id[:8]}.","type":"order","order_id":payload.order_id}).execute()
     return {"ok": True, "order_id": payload.order_id, "payment_status": "paid"}
+
+@router.post("/webhook")
+async def razorpay_webhook(request: Request, x_razorpay_signature: str | None = Header(default=None)):
+    if not settings.razorpay_webhook_secret:
+        raise HTTPException(status_code=503, detail="Payment webhook is not configured.")
+    raw = await request.body()
+    if not x_razorpay_signature:
+        raise HTTPException(status_code=400, detail="Missing webhook signature.")
+    expected = hmac.new(settings.razorpay_webhook_secret.encode(), raw, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, x_razorpay_signature):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature.")
+    event = json.loads(raw.decode("utf-8"))
+    if event.get("event") in {"payment.captured", "order.paid"}:
+        entity = event.get("payload", {}).get("payment", {}).get("entity", {})
+        provider_order_id = entity.get("order_id")
+        provider_payment_id = entity.get("id")
+        if provider_order_id:
+            client = get_admin_supabase()
+            rows = client.table("orders").select("id,user_id").eq("payment_provider_order_id", provider_order_id).limit(1).execute()
+            if rows.data:
+                order = rows.data[0]
+                client.table("orders").update({"payment_status":"paid","payment_provider_payment_id":provider_payment_id}).eq("id",order["id"]).execute()
+                client.table("notifications").insert({"user_id":order["user_id"],"title":"Payment confirmed","message":f"Payment confirmed for order #{str(order['id'])[:8]}.","type":"order","order_id":order["id"]}).execute()
+    return {"received": True}
