@@ -5,9 +5,9 @@ from app.core.config import settings
 
 @lru_cache
 def get_supabase() -> Client:
-    if not settings.SUPABASE_URL or not settings.SUPABASE_ANON_KEY:
+    if not settings.supabase_url or not settings.supabase_anon_key:
         raise RuntimeError("Supabase configuration is missing.")
-    return create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+    return create_client(settings.supabase_url, settings.supabase_anon_key)
 
 def require_user(authorization: str | None = Header(default=None)) -> str:
     if not authorization or not authorization.lower().startswith("bearer "):
