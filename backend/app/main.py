@@ -7,7 +7,7 @@ from app.api.routes.orders import router as orders_router
 from app.api.routes.admin import router as admin_router
 from app.api.routes.reviews import router as reviews_router
 from app.api.routes.coupons import router as coupons_router
-from app.api.routes.notifications import router as notifications_router
+from app.api.routes.notifications import router as notifications_router\nfrom app.api.routes.payments import router as payments_router
 from supabase import create_client
 
 app = FastAPI(title="Seetharam API", version="0.1.0")
@@ -46,7 +46,7 @@ app.include_router(orders_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(reviews_router, prefix="/api")
 app.include_router(coupons_router, prefix="/api")
-app.include_router(notifications_router, prefix="/api")
+app.include_router(notifications_router, prefix="/api")\napp.include_router(payments_router, prefix="/api")
 
 @app.get("/api/health")
 def health():
