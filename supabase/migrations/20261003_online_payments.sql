@@ -1,4 +1,4 @@
--- Secure online-order creation for Seetharam.
+-- Secure online-order creation for Seetharam.\nalter table orders add column if not exists payment_provider_order_id text;\nalter table orders add column if not exists payment_provider_payment_id text;\ncreate unique index if not exists idx_orders_payment_provider_order on orders(payment_provider_order_id) where payment_provider_order_id is not null;
 -- The server receives product IDs/quantities; prices and stock are read from products.
 create or replace function create_online_order(
   p_user_id uuid,
