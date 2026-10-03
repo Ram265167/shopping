@@ -3,6 +3,7 @@ import { api } from "./lib/api";
 import { supabase } from "./lib/supabase";
 import type { CartItem, Category, Product } from "./types";
 import ProductDetail from "./components/ProductDetail";
+import Cart from "./components/Cart";
 import "./styles.css";
 
 const fallbackCategories=["Men","Women","Kids","Sarees","Footwear","Accessories","Offers","New Arrivals","Best Sellers"];
