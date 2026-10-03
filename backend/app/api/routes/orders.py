@@ -82,3 +82,30 @@ def order_tracking(order_id: str, user_id: str):
     if not order.data: raise HTTPException(status_code=404, detail="Order not found.")
     history = client.table("order_status_history").select("*").eq("order_id",order_id).order("created_at").execute()
     return {"order": order.data[0], "history": history.data or []}
+
+
+@router.post("/{order_id}/cancel")
+def cancel_order(order_id: str, user_id: str):
+    client = get_supabase()
+    found = client.table("orders").select("id,status,user_id").eq("id", order_id).eq("user_id", user_id).limit(1).execute()
+    if not found.data: raise HTTPException(status_code=404, detail="Order not found.")
+    if found.data[0]["status"] not in ("ordered", "packed"): raise HTTPException(status_code=400, detail="This order can no longer be cancelled.")
+    result = client.table("orders").update({"status": "cancelled"}).eq("id", order_id).eq("user_id", user_id).execute()
+    client.table("order_status_history").insert({"order_id": order_id, "status": "cancelled", "note": "Cancellation requested by customer"}).execute()
+    if settings.supabase_service_role_key:
+        notify = create_client(settings.supabase_url, settings.supabase_service_role_key)
+        notify.table("notifications").insert({"user_id": user_id, "title": "Order cancelled", "message": f"Your Seetharam order #{str(order_id)[:8]} was cancelled.", "type": "order", "order_id": order_id}).execute()
+    return {"order": result.data[0] if result.data else None}
+
+@router.post("/{order_id}/return-request")
+def return_request(order_id: str, user_id: str):
+    client = get_supabase()
+    found = client.table("orders").select("id,status,user_id").eq("id", order_id).eq("user_id", user_id).limit(1).execute()
+    if not found.data: raise HTTPException(status_code=404, detail="Order not found.")
+    if found.data[0]["status"] != "delivered": raise HTTPException(status_code=400, detail="Returns can be requested only after delivery.")
+    result = client.table("orders").update({"status": "return_requested"}).eq("id", order_id).eq("user_id", user_id).execute()
+    client.table("order_status_history").insert({"order_id": order_id, "status": "return_requested", "note": "Return requested by customer"}).execute()
+    if settings.supabase_service_role_key:
+        notify = create_client(settings.supabase_url, settings.supabase_service_role_key)
+        notify.table("notifications").insert({"user_id": user_id, "title": "Return requested", "message": f"Your return request for order #{str(order_id)[:8]} was submitted.", "type": "return", "order_id": order_id}).execute()
+    return {"order": result.data[0] if result.data else None}
