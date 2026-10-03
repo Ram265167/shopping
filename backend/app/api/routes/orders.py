@@ -74,3 +74,11 @@ def user_orders(user_id: str):
     client = get_supabase()
     result = client.table("orders").select("*, order_items(*)").eq("user_id", user_id).order("created_at", desc=True).execute()
     return {"items": result.data or []}
+
+@router.get("/{order_id}/tracking")
+def order_tracking(order_id: str, user_id: str):
+    client = get_supabase()
+    order = client.table("orders").select("id,status,created_at,shipping_address,total,discount,coupon_code").eq("id",order_id).eq("user_id",user_id).limit(1).execute()
+    if not order.data: raise HTTPException(status_code=404, detail="Order not found.")
+    history = client.table("order_status_history").select("*").eq("order_id",order_id).order("created_at").execute()
+    return {"order": order.data[0], "history": history.data or []}
