@@ -8,8 +8,29 @@ from app.api.routes.admin import router as admin_router
 from app.api.routes.reviews import router as reviews_router
 from app.api.routes.coupons import router as coupons_router
 from app.api.routes.notifications import router as notifications_router
+from supabase import create_client
 
 app = FastAPI(title="Seetharam API", version="0.1.0")
+
+def ensure_storage_buckets():
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        return
+    client = create_client(settings.supabase_url, settings.supabase_service_role_key)
+    for bucket in ("product-images", "review-images"):
+        try:
+            client.storage.create_bucket(
+                bucket,
+                options={
+                    "public": True,
+                    "allowed_mime_types": ["image/jpeg", "image/png", "image/webp"],
+                    "file_size_limit": 5 * 1024 * 1024,
+                },
+            )
+        except Exception as exc:
+            if "already exists" not in str(exc).lower():
+                print(f"Storage bucket check failed for {bucket}: {exc}")
+
+ensure_storage_buckets()
 
 app.add_middleware(
     CORSMiddleware,
